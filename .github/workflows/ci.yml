@@ -106,7 +106,7 @@ jobs:
 
       - name: Download the build that was just tested
         if: env.HAS_CLOUDFLARE == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: site
           path: apps/web/dist
