@@ -10,7 +10,7 @@ sibling folder `../Part 1 - Architecture`, frozen at tag `part-1-architecture`.
 |---|---|
 | 2 · application development | `part-2-app` |
 | 3 · testing | `part-3-tests` |
-| 4 · production grade | `part-4-prod` |
+| 4 · production grade (CI, security headers, Cloudflare Pages) | `part-4-prod` |
 
 ## Run it
 
@@ -31,6 +31,21 @@ npm run build         # static files in apps/web/dist
 
 First time only: `npx playwright install chromium`. See `docs/TESTING.md`.
 
+```bash
+npm run preview       # the production build with the real security headers, on :4173
+npm run check         # what CI runs: typecheck, all tests, build, dependency audit
+```
+
+## Production
+
+- CI (`.github/workflows/ci.yml`) runs typecheck, unit, contract and end-to-end
+  tests, the build and a dependency audit on every push and pull request.
+- The site ships with a strict Content Security Policy and the other usual
+  security headers (`apps/web/public/_headers`), guarded by a unit test.
+- It deploys for free to Cloudflare Pages: build `npm run build`, output
+  `apps/web/dist`. Both the dashboard route and the CI-gated route are in
+  `docs/DEPLOYMENT.md`, with rollback.
+
 ## Layout
 
 ```
@@ -39,7 +54,8 @@ apps/web        React + Vite app: Today, Calendar and Settings screens, reminder
 packages/core   Pure rules (shouldRemind, nextReminderAt, dailyTotals), drink search,
                 drinks.json, the CaffeineStore interface, InMemoryStore, contract tests
 e2e             Playwright tests, one file per screen, plus reminders
-docs            Living copy of the architecture (see "Changes since Part 1") and TESTING.md
+docs            Living copy of the architecture (see "Changes since Part 1"), TESTING.md, DEPLOYMENT.md
+.github         CI workflow (test, audit, deploy) and Dependabot
 ```
 
 ## Caffeine figures

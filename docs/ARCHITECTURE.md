@@ -19,6 +19,18 @@ Status: living copy for the build (Parts 2–4). The Part 1 original is frozen i
 - The theme toggle in the header switches between light and dark and saves it;
   "system" is chosen in Settings.
 - Notifications that aren't allowed fall back to an in-page banner.
+- Part 4 (production): the pages are served with a strict Content Security
+  Policy and other security headers from `apps/web/public/_headers`, so the
+  theme-before-first-paint script moved out of `index.html` into
+  `public/theme-init.js` (no inline scripts allowed). See section 11.
+- Data from outside the running app (an imported backup, or what an earlier
+  version left in localStorage) goes through `sanitizeStoreData` in
+  `packages/core`: settings fall back field by field, malformed entries are
+  dropped, and `takenAt` is normalised to UTC ISO. Both stores use it; the
+  contract tests cover it.
+- A React error boundary around the app shows a message and a reload button
+  instead of a blank page. If the browser blocks site data entirely,
+  `createStore` falls back to `InMemoryStore` for the session.
 
 Visual version (Claude Design canvas): https://claude.ai/artifact/BTrzarsxNJSB65EYwf9kBz
 The canvas and this document describe the same design. If you change one, update the other.
@@ -321,5 +333,24 @@ caffeine-tracker/
     core/       Reminder rules, drink search, daily totals, drinks.json, shared types,
                 CaffeineStore interface, InMemoryStore, store contract tests
   docs/
+  .github/     CI workflow and Dependabot
+  wrangler.toml, .node-version   Cloudflare Pages project and Node version
   CLAUDE.md
 ```
+
+## 11. Production (Part 4)
+
+Details in `docs/DEPLOYMENT.md`. In short:
+
+- **CI** (`.github/workflows/ci.yml`): on every push and pull request, typecheck,
+  unit and contract tests, Playwright end-to-end tests, production build and a
+  production-dependency audit. On `main`, when the Cloudflare secrets are set,
+  the tested build is deployed. Dependabot keeps dependencies and actions current.
+- **Security headers** (`apps/web/public/_headers`, served by Cloudflare Pages and
+  by `npm run preview`): a CSP that allows only same-origin scripts and no inline
+  ones, no framing, `nosniff`, `no-referrer`, a restrictive Permissions-Policy,
+  HSTS, and a one-year immutable cache for Vite's hashed assets. A unit test
+  guards the policy and checks `index.html` against it.
+- **Deploy** (D8): Cloudflare Pages, free, from GitHub either through the
+  dashboard's Git integration or from the CI deploy job (`wrangler.toml`).
+  Build command `npm run build`, output `apps/web/dist`, Node from `.node-version`.

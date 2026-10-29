@@ -25,6 +25,8 @@ changes during the build, update it and note the change in its
 - `npm run dev` starts the app (Vite). Add `?demo=1` to the URL for demo mode.
 - `npm test` (unit), `npm run test:e2e` (Playwright), `npm run test:all`, `npm run typecheck`, `npm run build`.
 - Testing guide, including how the fake clock works: `docs/TESTING.md`.
+- `npm run preview` serves the production build with the real security headers;
+  `npm run check` runs everything CI runs. Production guide: `docs/DEPLOYMENT.md`.
 
 ## Rules
 - Keep it free and simple: no server, database, accounts or paid services.
@@ -43,3 +45,10 @@ changes during the build, update it and note the change in its
 - Every change to `packages/core` comes with tests. A new screen or flow comes
   with a Playwright test in `e2e/`, using role and label selectors.
 - End-to-end tests control time with Playwright's fake clock; never add sleeps.
+- The Content Security Policy (`apps/web/public/_headers`) allows no inline
+  scripts or styles: no `<script>` or `<style>` blocks in `index.html`, no
+  `dangerouslySetInnerHTML`. Start-up code goes in `public/theme-init.js`.
+  A unit test checks the policy; change both together and update `docs/DEPLOYMENT.md`.
+- Anything that comes from outside the app (imports, old localStorage) goes
+  through `sanitizeStoreData` before it's trusted.
+- CI must stay green on `main`: it's what gates the deploy.

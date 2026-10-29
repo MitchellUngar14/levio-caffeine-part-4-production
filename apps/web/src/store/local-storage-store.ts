@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, InMemoryStore, StoreError, type StoreData, emptyData } from "@caffeine/core";
+import { DEFAULT_SETTINGS, InMemoryStore, StoreError, type StoreData, emptyData, sanitizeStoreData } from "@caffeine/core";
 
 export const STORAGE_KEY = "caffeine-tracker:v1";
 
@@ -34,13 +34,8 @@ function load(storage: Storage, defaultTimeZone?: string): StoreData {
   }
   if (!raw) return fresh;
   try {
-    const parsed = JSON.parse(raw) as Partial<StoreData>;
-    return {
-      settings: { ...fresh.settings, ...(parsed.settings ?? {}) },
-      customDrinks: Array.isArray(parsed.customDrinks) ? parsed.customDrinks : [],
-      intakes: Array.isArray(parsed.intakes) ? parsed.intakes : [],
-      lastReminder: parsed.lastReminder ?? null,
-    };
+    // Whatever an earlier version (or a hand edit) left behind: repair field by field.
+    return sanitizeStoreData(JSON.parse(raw), fresh.settings);
   } catch {
     // Corrupt data: start fresh rather than crash. The old value stays until the next save.
     return fresh;

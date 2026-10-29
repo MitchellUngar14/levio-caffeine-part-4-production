@@ -1,53 +1,83 @@
-# Part 3: Testing — what was done
+# Part 4: Production grade — what was done
 
-The goal: give the app a test suite at three levels, with a way to run and
-watch the tests from inside Claude Code. This folder is a clone of Part 2 (so
-the history and tags carry over) with the tests added on top.
+The goal: make the app safe to publish and keep publishing, for free. CI that
+runs every test on every push, strict security headers on the served pages, a
+security review of the change, and a Cloudflare Pages deploy. This folder is
+a clone of Part 3 (history and tags carry over) with the production work on top.
 
 ## Steps
 
-1. **Cloned the Part 2 repo into this folder**, installed dependencies, and
-   added Playwright with Chromium.
-2. **Chose Playwright over Cypress:** the architecture already named it, it
-   runs headless in CI, and its fake clock lets a "three hours without
-   caffeine" reminder be tested in milliseconds.
-3. **Wrote the Playwright setup:** a config that starts its own Vite server,
-   and fixtures that freeze the clock on a Thursday morning in Toronto and
-   replace the browser's notification API with a stub that records calls.
-4. **Wrote 28 end-to-end tests** across logging drinks, the coffee cup's states,
-   the history drawer, the calendar colour levels, settings and validation,
-   theme, export, persistence, and reminders (gap mode, set times, cut-off,
-   demo mode, waking after sleep). The first run had six failures, all in the
-   tests' own selectors, fixed in one pass.
-5. **Added unit tests** for the time zone helpers (both daylight-saving
-   changes), the coffee cup's rendered states and the format helpers.
-   94 tests in all, passing.
-6. **Wrote `docs/TESTING.md`:** the three layers, how the fake clock works, the
-   store contract, failure artifacts, and a recipe for planting a bug on stage
-   so the audience can watch the tests catch it (verified: one test fails with
-   "expected past-cutoff, received due").
-7. **Committed and tagged** `part-3-tests`.
-8. **Built a Playwright pane for Claude Code** (the `pw-runner` mod, now an
-   installed plugin): lists the tests, runs all, one file or one test with live
-   results, opens UI mode or the HTML report in Claude's browser, shows the
-   screenshot, video and trace of a failure, and gives Claude a `run_tests`
-   tool. Along the way: Playwright keeps a video of failed tests.
-9. **Built a second mod, `help-mod`:** a pane listing every command the mods
-   add, searchable and collapsible, click to run. Both mods live in
-   `~/claude-mods` as a local marketplace and load in every session.
-10. **Added project tooling:** a hook that typechecks the edited workspace after
-    every Edit or Write, and a `/demo-part` skill that builds the next part
-    in its own folder through to passing tests, commit and tag.
+1. **Cloned the Part 3 repo into this folder**, installed dependencies and
+   Chromium, and ran the baseline: typecheck clean, 70 unit tests green, no
+   advisories in production dependencies (three dev-only ones in Vitest's
+   worker pool).
+2. **Wrote the CI pipeline** (`.github/workflows/ci.yml`): on every push to
+   `main` and every pull request, `npm ci`, typecheck, unit and contract tests,
+   Chromium install, Playwright end-to-end tests, production build, and a check
+   that the headers file made it into the build. Failures keep Playwright's
+   report, screenshots, videos and traces as an artifact. A second job audits
+   production dependencies. A third deploys the exact build that was tested to
+   Cloudflare Pages, on `main` only, and only when the two Cloudflare secrets
+   exist; otherwise it logs a note and skips. Read-only token permissions,
+   cancelled superseded runs, Node from `.node-version`, Dependabot weekly.
+3. **Added security headers** (`apps/web/public/_headers`, which Vite copies
+   into the build root where Cloudflare Pages reads it): a Content Security
+   Policy that allows only same-origin scripts and no inline ones, plus
+   `nosniff`, `DENY` framing, `no-referrer`, a restrictive Permissions-Policy,
+   cross-origin opener and resource policies, HSTS, and a one-year immutable
+   cache for Vite's hashed assets.
+4. **Made the app CSP-clean:** the theme-before-first-paint script moved from
+   an inline `<script>` in `index.html` to `public/theme-init.js`. `vite
+   preview` now serves the same headers (`npm run preview`), and a unit test
+   parses `_headers`, insists on every header and on no `unsafe-inline`, and
+   checks `index.html` against the policy (no inline scripts, every external
+   origin allowed).
+5. **Hardened what comes from outside the app:** `sanitizeStoreData` in
+   `packages/core` repairs settings field by field and drops malformed entries,
+   for imported backups and for whatever an older version left in localStorage.
+   Both stores use it; the contract suite got a test for it, plus eight unit
+   tests. A React error boundary replaces a blank page with a message and a
+   reload button, and store selection falls back to memory when the browser
+   blocks site data.
+6. **Upgraded Vitest to 4** (dev-only) to clear the audit: all tests still pass,
+   `npm audit` reports zero vulnerabilities.
+7. **Ran `/security-review`** on the change set: no exploitable findings. It
+   confirmed the CSP matches Vite's output, the import sanitiser can't be used
+   for prototype pollution, and fork PRs can't reach the deploy secrets. One
+   operational note acted on: runs on `main` now queue instead of cancelling,
+   so a deploy is never cut off. Summary in `docs/DEPLOYMENT.md` section 4.
+8. **Verified:** `npm run check` (typecheck, 83 unit and contract tests, 28
+   Playwright tests, build, audit) green; the production build opened in the
+   browser pane with the real headers, no CSP violations in the console, fonts
+   loaded, drinks logged, settings saved.
+9. **Wrote `docs/DEPLOYMENT.md`:** the CI jobs, every header and why, the two
+   ways to deploy to Cloudflare Pages (dashboard Git integration, or the
+   CI-gated job with two secrets), rollback, custom domain, and what production
+   doesn't change (data stays in the browser, cost stays $0). Updated README,
+   CLAUDE.md and the living architecture doc.
+10. **Committed and tagged** `part-4-prod`.
 
 ## Outputs
 
-- `npm run test:all`: 66 unit tests and 28 Playwright tests, all passing
-- `docs/TESTING.md`, `.claude/hooks/typecheck.sh`, `.claude/skills/demo-part`
-- `/pw` and `/help-mod` in any session (from `~/claude-mods`)
-- Tag `part-3-tests`, plus a tooling commit on top
+- `.github/workflows/ci.yml`, `.github/dependabot.yml`, `.node-version`, `wrangler.toml`
+- `apps/web/public/_headers`, `apps/web/public/theme-init.js`, `apps/web/security-headers.ts`
+- `packages/core/src/validate.ts`, `apps/web/src/components/ErrorBoundary.tsx`
+- `docs/DEPLOYMENT.md`; `npm run preview`, `npm run check`, `npm run audit`
+- 111 tests (83 unit and contract, 28 end to end), all passing; zero audit findings
+- Tag `part-4-prod`
+
+## Left for the live session (needs accounts)
+
+- Push the repo to GitHub (`gh repo create`, after `gh auth login`) and watch
+  the first CI run go green.
+- Create the Cloudflare Pages project from the dashboard (build `npm run build`,
+  output `apps/web/dist`) and open the `pages.dev` URL; or add the two secrets
+  and let the CI deploy job do it.
 
 ## Worth showing live
 
-- Plant the bug from TESTING.md, run the tests, and let Claude find and fix it.
-- Press `run all` in the Playwright pane and watch the dots turn green.
-- A failed test's `[screenshot]` and `[trace + report]` links.
+- Push a commit and watch the CI matrix: tests, audit, then deploy.
+- `curl -sI https://<project>.pages.dev` showing the CSP, or securityheaders.com.
+- Add an inline `<script>` to `index.html`: the headers test fails before the
+  CSP would have blocked it in production.
+- Import a hand-edited backup with a bad entry: it's dropped, not crashed on.

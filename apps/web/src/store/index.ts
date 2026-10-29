@@ -7,5 +7,11 @@ export function createStore(): CaffeineStore {
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const tz = isValidTimeZone(browserTz) ? browserTz : "UTC";
   if (kind === "memory") return new InMemoryStore({ settings: defaultSettings(tz) });
-  return new LocalStorageStore(window.localStorage, tz);
+  try {
+    // Reading window.localStorage itself throws when the browser blocks site data.
+    return new LocalStorageStore(window.localStorage, tz);
+  } catch {
+    console.warn("caffeine_tracker: browser storage is blocked, so nothing will be saved this session");
+    return new InMemoryStore({ settings: defaultSettings(tz) });
+  }
 }

@@ -1,5 +1,6 @@
 import { type CaffeineStore, StoreError, isExportFile, newId } from "./store";
 import { DEFAULT_SETTINGS, type CustomDrink, type ExportFile, type Intake, type LastReminder, type NewCustomDrink, type NewIntake, type Settings } from "./types";
+import { sanitizeStoreData } from "./validate";
 
 export interface StoreData {
   settings: Settings;
@@ -103,12 +104,9 @@ export class InMemoryStore implements CaffeineStore {
 
   async importAll(f: ExportFile): Promise<void> {
     if (!isExportFile(f)) throw new StoreError("invalid", "not a caffeine tracker export");
-    this.data = {
-      settings: { ...DEFAULT_SETTINGS, ...f.settings },
-      customDrinks: f.customDrinks.map((d) => ({ ...d })),
-      intakes: f.intakes.map((i) => ({ ...i })),
-      lastReminder: f.lastReminder ? { ...f.lastReminder } : null,
-    };
+    // The file came from outside the app: repair settings and drop entries that can't be used.
+    // Settings the file lacks keep their current value (for example the time zone).
+    this.data = sanitizeStoreData(f, this.data.settings);
     await this.persist();
   }
 }

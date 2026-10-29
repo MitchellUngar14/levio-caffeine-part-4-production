@@ -1,0 +1,6 @@
+# Cloudflare Pages project. Used by `npx wrangler pages deploy` and the CI
+# deploy job; the dashboard's Git integration reads the same build settings
+# from docs/DEPLOYMENT.md. Free plan, no Workers, no bindings.
+name = "caffeine-tracker"
+pages_build_output_dir = "apps/web/dist"
+compatibility_date = "2026-10-01"

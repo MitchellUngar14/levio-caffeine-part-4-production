@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { CaffeineStore } from "./store";
-import { DEFAULT_SETTINGS } from "./types";
+import { DEFAULT_SETTINGS, type ExportFile } from "./types";
 
 export function storeContract(name: string, make: () => CaffeineStore | Promise<CaffeineStore>): void {
   describe(`${name} (store contract)`, () => {
@@ -81,6 +81,33 @@ export function storeContract(name: string, make: () => CaffeineStore | Promise<
       expect((await t.listIntakes("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z")).length).toBe(1);
       expect((await t.listCustomDrinks())[0]?.name).toBe("Yerba");
       await expect(t.importAll({} as never)).rejects.toMatchObject({ code: "invalid" });
+    });
+
+    it("repairs settings and drops malformed entries on import", async () => {
+      const s = await make();
+      await s.saveSettings({ ...DEFAULT_SETTINGS, timeZone: "America/Toronto" });
+      const file = {
+        version: 1,
+        exportedAt: "2026-10-29T14:00:00.000Z",
+        settings: { dailyLimitMg: -5, cutoffTime: "25:99", theme: "dark" },
+        customDrinks: [
+          { id: "a", name: "Good", mg: 50 },
+          { id: "b", name: "", mg: 50 },
+          { name: "no id", mg: 1 },
+        ],
+        intakes: [
+          { id: "i1", name: "Coffee", mg: 96, takenAt: "2026-10-29T13:00:00Z" },
+          { id: "i2", name: "Bad mg", mg: "lots", takenAt: "2026-10-29T13:00:00.000Z" },
+          { id: "i3", name: "Bad date", mg: 1, takenAt: "yesterday" },
+        ],
+        lastReminder: { at: "nope", slot: 1 },
+      } as unknown as ExportFile;
+      await s.importAll(file);
+      expect(await s.getSettings()).toEqual({ ...DEFAULT_SETTINGS, timeZone: "America/Toronto", theme: "dark" });
+      const intakes = await s.listIntakes("2000-01-01T00:00:00.000Z", "2100-01-01T00:00:00.000Z");
+      expect(intakes).toEqual([{ id: "i1", name: "Coffee", mg: 96, takenAt: "2026-10-29T13:00:00.000Z" }]);
+      expect((await s.listCustomDrinks()).map((d) => d.name)).toEqual(["Good"]);
+      expect(await s.getLastReminder()).toBeNull();
     });
   });
 }

@@ -9,14 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" />
-    <script>
-      // Apply the saved theme before first paint so the page doesn't flash.
-      try {
-        var raw = localStorage.getItem("caffeine-tracker:v1");
-        var theme = raw && JSON.parse(raw).settings && JSON.parse(raw).settings.theme;
-        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
-      } catch (e) {}
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
